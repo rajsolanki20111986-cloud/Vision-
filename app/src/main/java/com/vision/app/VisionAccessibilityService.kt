@@ -35,8 +35,7 @@ class VisionAccessibilityService : AccessibilityService() {
 
     fun readScreen(): String {
         val root = rootInActiveWindow ?: return "No screen available"
-        val sb = StringBuilder("app=${root.packageName}
-")
+        val sb = StringBuilder("app=${root.packageName}\n")
         val r = Rect()
         var n = 0
         fun walk(nd: AccessibilityNodeInfo?) {
@@ -45,8 +44,7 @@ class VisionAccessibilityService : AccessibilityService() {
             if (!label.isNullOrBlank() && nd.isVisibleToUser) {
                 nd.getBoundsInScreen(r)
                 val tag = when { nd.isEditable -> "[input] "; nd.isClickable -> "[btn] "; else -> "" }
-                sb.append(tag).append(label).append(" @").append(r.centerX()).append(',').append(r.centerY()).append('
-')
+                sb.append(tag).append(label).append(" @").append(r.centerX()).append(',').append(r.centerY()).append('\n')
                 n++
             }
             for (i in 0 until nd.childCount) walk(nd.getChild(i))
