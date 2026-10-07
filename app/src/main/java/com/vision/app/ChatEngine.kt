@@ -21,8 +21,10 @@ object ChatEngine {
                 .put("role", if (user) "user" else "model")
                 .put("parts", JSONArray().put(JSONObject().put("text", text))))
         }
+        val lang = history.lastOrNull()?.second?.let { LanguageDetector.detectLanguage(it) } ?: "en"
+        val langPrompt = LanguageDetector.getLanguagePrompt(lang)
         val body = JSONObject()
-            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", Persona.PROMPT + Persona.TEXT_NOTE))))
+            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", Persona.PROMPT + Persona.TEXT_NOTE + "\n" + langPrompt))))
             .put("contents", contents)
         val req = Request.Builder()
             .url("https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent")
