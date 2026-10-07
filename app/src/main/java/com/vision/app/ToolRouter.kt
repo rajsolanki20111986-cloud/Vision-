@@ -22,7 +22,9 @@ object ToolRouter {
     }
 
     fun declarations() = JSONArray().apply {
-        addAll(SystemPermissionTools.declarations())
+        SystemPermissionTools.declarations().let { declarations ->
+            for (i in 0 until declarations.length()) put(declarations.get(i))
+        }
         put(d("open_app", "Open an installed app by name, e.g. YouTube, Instagram, CapCut, Phone.", "name" to "App name"))
         put(d("open_url", "Open a URL or URI (https, tel:, sms:) in the best app.", "url" to "Full URL or URI"))
         put(d("youtube_search", "Open YouTube search results.", "query" to "Search text"))
