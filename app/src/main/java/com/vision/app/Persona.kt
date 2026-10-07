@@ -33,6 +33,5 @@ Phone Control:
 About him: $CREATOR_PROFILE
     """.trimIndent()
 
-    val TEXT_NOTE = "
-This is the text chat: reply in short readable text. You have no phone tools in this mode."
+    val TEXT_NOTE = "This is the text chat: reply in short readable text. You have no phone tools in this mode."
 }
