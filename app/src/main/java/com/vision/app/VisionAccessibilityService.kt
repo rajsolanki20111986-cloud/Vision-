@@ -35,22 +35,33 @@ class VisionAccessibilityService : AccessibilityService() {
 
     fun readScreen(): String {
         val root = rootInActiveWindow ?: return "No screen available"
-        val sb = StringBuilder("app=${root.packageName}\n")
-        val r = Rect()
-        var n = 0
-        fun walk(nd: AccessibilityNodeInfo?) {
-            if (nd == null || n >= 120) return
-            val label = (nd.text ?: nd.contentDescription)?.toString()?.take(80)
-            if (!label.isNullOrBlank() && nd.isVisibleToUser) {
-                nd.getBoundsInScreen(r)
-                val tag = when { nd.isEditable -> "[input] "; nd.isClickable -> "[btn] "; else -> "" }
-                sb.append(tag).append(label).append(" @").append(r.centerX()).append(',').append(r.centerY()).append('\n')
-                n++
-            }
-            for (i in 0 until nd.childCount) walk(nd.getChild(i))
-        }
-        walk(root)
+        val sb = StringBuilder()
+        sb.append("app=").append(root.packageName).append('\n')
+        collect(root, sb, IntArray(1))
         return sb.toString()
+    }
+
+    private fun collect(nd: AccessibilityNodeInfo?, sb: StringBuilder, count: IntArray) {
+        if (nd == null || count[0] >= 120) return
+        val label = (nd.text ?: nd.contentDescription)?.toString()
+        if (!label.isNullOrBlank() && nd.isVisibleToUser) {
+            val r = Rect()
+            nd.getBoundsInScreen(r)
+            val tag: String
+            if (nd.isEditable) {
+                tag = "[input] "
+            } else if (nd.isClickable) {
+                tag = "[btn] "
+            } else {
+                tag = ""
+            }
+            sb.append(tag).append(label.take(80))
+            sb.append(" @").append(r.centerX()).append(',').append(r.centerY()).append('\n')
+            count[0] = count[0] + 1
+        }
+        for (i in 0 until nd.childCount) {
+            collect(nd.getChild(i), sb, count)
+        }
     }
 
     fun clickText(t: String): String {
