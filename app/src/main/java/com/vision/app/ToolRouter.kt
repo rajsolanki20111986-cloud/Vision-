@@ -22,6 +22,7 @@ object ToolRouter {
     }
 
     fun declarations() = JSONArray().apply {
+        addAll(SystemPermissionTools.declarations())
         put(d("open_app", "Open an installed app by name, e.g. YouTube, Instagram, CapCut, Phone.", "name" to "App name"))
         put(d("open_url", "Open a URL or URI (https, tel:, sms:) in the best app.", "url" to "Full URL or URI"))
         put(d("youtube_search", "Open YouTube search results.", "query" to "Search text"))
@@ -38,6 +39,8 @@ object ToolRouter {
 
     suspend fun run(ctx: Context, name: String, a: JSONObject): String {
         val app = ctx.applicationContext
+        val result = SystemPermissionTools.run(app, name, a)
+        if (result != "Unknown tool: $name") return result
         when (name) {
             "open_app" -> return openApp(app, a.optString("name")).also { delay(1500) }
             "open_url" -> return openUrl(app, a.optString("url")).also { delay(1500) }
