@@ -4,32 +4,25 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/**
- * Monitors incoming notifications (messages from WhatsApp, Telegram, Instagram, etc).
- * When a new message arrives, Vision tells Raj who messaged.
- * Raj can then say "reply to [person]" and Vision will continue the conversation.
- */
 class VisionNotificationListener : NotificationListenerService() {
 
     companion object {
-        val newMessage = MutableStateFlow<Pair<String, String>?>(null) // (sender, message)
+        val newMessage = MutableStateFlow<Pair<String, String>?>(null)
         @Volatile var inst: VisionNotificationListener? = null
     }
 
-    override fun onServiceConnected() { inst = this }
+    override fun onListenerConnected() { inst = this }
     override fun onNotificationPosted(sbn: StatusBarNotification?) { processNotification(sbn) }
     override fun onDestroy() { inst = null; super.onDestroy() }
 
     private fun processNotification(sbn: StatusBarNotification?) {
         sbn ?: return
-        val pkg = sbn.packageName ?: return
-        val n = sbn.notification ?: return
+        val pkg = sbn.packageName
+        val n = sbn.notification
 
-        // Block payment/banking apps
         if (listOf("paisa", "phonepe", "paytm", "paypal", "bank", "wallet").any { pkg.contains(it, ignoreCase = true) })
             return
 
-        // Extract sender and message text from notification
         val text = n.extras?.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
             ?: n.extras?.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString()
             ?: return
@@ -42,7 +35,7 @@ class VisionNotificationListener : NotificationListenerService() {
             pkg.contains("telegram", ignoreCase = true) -> "Telegram"
             pkg.contains("instagram", ignoreCase = true) -> "Instagram"
             pkg.contains("messenger", ignoreCase = true) -> "Messenger"
-            pkg.contains("sms") -> "SMS"
+            pkg.contains("sms", ignoreCase = true) -> "SMS"
             else -> title
         }
 
