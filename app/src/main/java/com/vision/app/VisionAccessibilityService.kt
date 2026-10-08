@@ -6,6 +6,8 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
+import android.content.Intent
+import android.media.AudioManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -16,13 +18,15 @@ class VisionAccessibilityService : AccessibilityService() {
         @Volatile var inst: VisionAccessibilityService? = null
         // Payment / banking style apps are never operated. Extend as needed.
         private val BLOCK = listOf("paisa", "phonepe", "paytm", "paypal", "upi", "bhim", "bank", "wallet", "razorpay")
+        @Volatile var currentScreenContent: String = ""
+        private var screenMonitor: BackgroundScreenMonitor? = null
     }
 
-    override fun onServiceConnected() { inst = this; Prefs.init(this) }
-    override fun onAccessibilityEvent(e: AccessibilityEvent?) {}
+    override fun onServiceConnected() { inst = this; Prefs.init(this); FastPath.setAccessibilityService(this); screenMonitor = BackgroundScreenMonitor(this); screenMonitor?.startMonitoring(2000) }
+    override fun onAccessibilityEvent(e: AccessibilityEvent?) { currentScreenContent = readScreen() }
     override fun onInterrupt() {}
     override fun onUnbind(intent: android.content.Intent?): Boolean { inst = null; return super.onUnbind(intent) }
-    override fun onDestroy() { inst = null; super.onDestroy() }
+    override fun onDestroy() { screenMonitor?.cleanup(); screenMonitor = null; currentScreenContent = ""; inst = null; super.onDestroy() }
 
     /** Returns a refusal message, or null when acting is allowed. */
     fun blockedReason(): String? {
@@ -122,6 +126,28 @@ class VisionAccessibilityService : AccessibilityService() {
             GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(p, 0, 300)).build(), null, null
         )
     }
+
+    suspend fun executePlayMusic() { tapXY(0.5f, 0.8f) }
+    suspend fun executePause() { tapXY(0.5f, 0.8f) }
+    suspend fun executeNext() { tapXY(0.75f, 0.8f) }
+    suspend fun executePrevious() { tapXY(0.25f, 0.8f) }
+
+    fun tapXY(nx: Float, ny: Float): Boolean {
+        val m = resources.displayMetrics
+        return tap((m.widthPixels * nx).toInt(), (m.heightPixels * ny).toInt())
+    }
+
+    fun openApp(packageName: String): Boolean {
+        val intent = packageManager.getLaunchIntentForPackage(packageName) ?: return false
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+        return true
+    }
+
+    fun pressHome() { performGlobalAction(GLOBAL_ACTION_HOME) }
+    fun volumeUp() { getSystemService(AudioManager::class.java)?.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI) }
+    fun volumeDown() { getSystemService(AudioManager::class.java)?.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI) }
+    fun mute() { getSystemService(AudioManager::class.java)?.adjustVolume(AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI) }
 
     fun press(key: String): String {
         val a = when (key) {
