@@ -113,6 +113,12 @@ class LiveSession(
         }
     }
 
+    suspend fun sendMessage(message: String): String {
+        val screen = VisionAccessibilityService.currentScreenContent
+        val enhanced = if (screen.isBlank()) message else message + "\n\n[Current Screen]\n" + screen
+        return ChatEngine.reply(listOf(true to enhanced))
+    }
+
     fun stop() { ws?.close(1000, "bye"); shutdown() }
 
     private fun shutdown() {
