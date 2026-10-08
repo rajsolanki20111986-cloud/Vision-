@@ -40,5 +40,10 @@ class VisionNotificationListener : NotificationListenerService() {
         }
 
         newMessage.value = appName to text
+        ConversationManager.getConversation()?.let { conv ->
+            if (conv.autoReplyEnabled && conv.personName.equals(title, ignoreCase = true)) {
+                ConversationManager.addMessage(title, text)
+            }
+        }
     }
 }
