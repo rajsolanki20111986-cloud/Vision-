@@ -40,4 +40,17 @@ class MemoryStore(context: Context) {
     }
     private fun put(k: String, value: Any): Boolean = runCatching { prefs.edit().putString(k, gson.toJson(value)).commit() }.getOrDefault(false)
     private inline fun <reified T> get(k: String): T? = decode(prefs.getString(k, null))
+
+    fun searchMemories(query: String): List<SearchResult> {
+        val q = query.lowercase()
+        return prefs.all.filterKeys { it.startsWith("memory:") }.values.mapNotNull { decode<MemoryEntry>(it as? String) }
+            .mapNotNull { entry ->
+                val score = (if (entry.key.lowercase().contains(q)) 2 else 0) +
+                    (if (entry.content.lowercase().contains(q)) 1 else 0) +
+                    entry.tags.count { it.lowercase().contains(q) }
+                if (score > 0) SearchResult(entry, score.toFloat(), "content/key/tags", entry.folder) else null
+            }
+    }
+    fun getMemoryStats(): MemoryStats = stats()
+    fun getAllFolders(): List<FolderInfo> = allFolders()
 }
