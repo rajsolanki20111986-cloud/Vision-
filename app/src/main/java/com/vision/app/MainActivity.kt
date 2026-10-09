@@ -75,6 +75,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
+import com.vision.memory.MemoryManager
 
 private val BG = Color(0xFF05070D)
 private val GOLD = Color(0xFFFFD54F)
@@ -177,12 +178,22 @@ class ChatVM : ViewModel() {
     val msgs = mutableStateListOf<Pair<Boolean, String>>()
     var busy by mutableStateOf(false)
 
-    fun send(text: String) {
+    fun send(text: String, memoryManager: MemoryManager) {
         if (text.isBlank() || busy) return
         msgs.add(true to text)
         busy = true
         viewModelScope.launch {
-            val r = try { ChatEngine.reply(msgs.toList()) } catch (e: Exception) { "Error: ${e.message}" }
+            val r = try {
+                memoryManager.addToSessionMemory("user", text)
+                val history = msgs.toList()
+                val remembered = memoryManager.search(text).take(3)
+                    .joinToString("\\n") { "- ${it.memoryEntry.key}: ${it.memoryEntry.content}" }
+                val request = if (remembered.isBlank()) history else
+                    history.dropLast(1) + (true to "$text\\n\\nRelevant saved memory (use only if relevant):\\n$remembered")
+                val answer = ChatEngine.reply(request)
+                memoryManager.addToSessionMemory("assistant", answer)
+                answer
+            } catch (e: Exception) { "Error: ${e.message}" }
             msgs.add(false to r)
             busy = false
         }
@@ -192,6 +203,7 @@ class ChatVM : ViewModel() {
 @Composable
 fun ChatScreen(vm: ChatVM = viewModel()) {
     val ctx = LocalContext.current
+    val memoryManager = remember(ctx) { MemoryManager(ctx.applicationContext) }
     var input by remember { mutableStateOf("") }
     val tts = remember {
         lateinit var t: TextToSpeech
@@ -221,7 +233,7 @@ fun ChatScreen(vm: ChatVM = viewModel()) {
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(input, { input = it }, Modifier.weight(1f), placeholder = { Text("Message") }, maxLines = 4)
             Text("🎤", fontSize = 26.sp, modifier = Modifier.clickable { listen(ctx) { input = it } }.padding(8.dp))
-            Text("➤", fontSize = 26.sp, color = CYAN, modifier = Modifier.clickable { vm.send(input); input = "" }.padding(8.dp))
+            Text("➤", fontSize = 26.sp, color = CYAN, modifier = Modifier.clickable { vm.send(input, memoryManager); input = "" }.padding(8.dp))
         }
     }
 }
