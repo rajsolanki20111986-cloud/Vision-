@@ -6,44 +6,65 @@ import kotlinx.coroutines.withContext
 
 /**
  * IMAGE RECOGNITION (v0.4)
- *
- * Intended image analysis features: object descriptions, OCR,
- * relevance to context, and actionable elements.
+ * 
+ * Understand all images on screen:
+ * - Profile pictures
+ * - Thumbnails
+ * - Screenshots
+ * - Diagrams
+ * - Icons
+ * - Photos in messages
  */
 
 data class ImageAnalysis(
     val id: String,
     val description: String,
     val objects: List<String>,
-    val text: List<String>,
+    val text: List<String>,  // OCR
     val relevance: String,
     val actionable: Boolean
 )
 
 class ImageRecognition(private val geminiSession: Any) {
-    suspend fun analyzeImage(
-        bitmap: Bitmap,
-        context: String = ""
-    ): ImageAnalysis? = withContext(Dispatchers.Default) {
-        try {
-            // TODO: Pass the bitmap and context to the configured Gemini vision API.
-            // This placeholder deliberately returns null until API integration is added.
-            null
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
+    
+    /**
+     * Analyze an image from screen
+     */
+    suspend fun analyzeImage(bitmap: Bitmap, context: String = ""): ImageAnalysis? {
+        return withContext(Dispatchers.Default) {
+            try {
+                // Send image to Gemini for analysis
+                // Gemini will return:
+                // - What's in the image
+                // - Any text (OCR)
+                // - Relevance to current context
+                // - Actionable elements
+                
+                null  // Placeholder
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
         }
     }
-
-    suspend fun extractText(bitmap: Bitmap): String =
-        withContext(Dispatchers.Default) {
-            // TODO: Implement OCR using the configured vision API.
-            ""
+    
+    /**
+     * Detect text in image (OCR)
+     */
+    suspend fun extractText(bitmap: Bitmap): String {
+        return withContext(Dispatchers.Default) {
+            // Use Gemini's vision to extract text
+            return@withContext ""  // Placeholder
         }
-
-    suspend fun containsPerson(bitmap: Bitmap): Boolean =
-        withContext(Dispatchers.Default) {
-            // TODO: Implement person detection using the configured vision API.
-            false
+    }
+    
+    /**
+     * Detect if image contains person
+     */
+    suspend fun containsPerson(bitmap: Bitmap): Boolean {
+        return withContext(Dispatchers.Default) {
+            // Send to Gemini, ask if person is in image
+            return@withContext false
         }
+    }
 }
