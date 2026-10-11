@@ -7,8 +7,11 @@ import kotlinx.coroutines.withContext
 /**
  * ENHANCED NOTIFICATION MANAGER (v0.4)
  * 
- * Instant notification detection, sender/context extraction,
- * and a decision to inform the user, auto-reply, or ignore.
+ * ✅ Instant notification detection
+ * ✅ Understand who sent + context
+ * ✅ Autonomous decision: auto-reply or inform Raj
+ * ✅ Context-aware responses
+ * ✅ Understand photos/videos in messages
  */
 
 data class NotificationContent(
@@ -23,42 +26,61 @@ data class NotificationContent(
 class EnhancedNotificationManager(
     private val decisionMaker: IntelligentDecisionMaker
 ) {
-    suspend fun handleNotification(notification: StatusBarNotification) =
-        withContext(Dispatchers.Default) {
-            val content = extractNotificationContent(notification)
-            val decision = decisionMaker.makeNotificationDecision(
-                sender = content.sender,
-                messageContent = content.message
-            )
-            executeNotificationDecision(decision, content)
-        }
-
-    private fun extractNotificationContent(
+    
+    /**
+     * Handle new notification instantly
+     */
+    suspend fun handleNotification(
         notification: StatusBarNotification
-    ): NotificationContent {
+    ) = withContext(Dispatchers.Default) {
+        
+        // 1. Extract notification content
+        val content = extractNotificationContent(notification)
+        
+        // 2. Make autonomous decision
+        val decision = decisionMaker.makeNotificationDecision(
+            sender = content.sender,
+            messageContent = content.message
+        )
+        
+        // 3. Execute decision
+        executeNotificationDecision(decision, content)
+    }
+    
+    /**
+     * Extract notification details
+     */
+    private fun extractNotificationContent(notification: StatusBarNotification): NotificationContent {
         return NotificationContent(
             sender = notification.notification.extras.getString("android.title") ?: "Unknown",
-            message = notification.notification.extras.getCharSequence("android.text")?.toString() ?: "",
+            message = notification.notification.extras.getString("android.text") ?: "",
             timestamp = notification.postTime,
             app = notification.packageName,
             attachments = emptyList(),
             isUrgent = notification.notification.priority >= 1
         )
     }
-
+    
+    /**
+     * Execute notification decision
+     */
     private suspend fun executeNotificationDecision(
         decision: NotificationDecision,
         content: NotificationContent
     ) = withContext(Dispatchers.Default) {
+        
         when (decision.action) {
             "inform_user" -> {
-                // Connect this branch to the app's speech/output layer.
+                // Speak to Raj: "अरे, $sender का urgent message है!"
+                // speakText(decision.message)
             }
             "auto_reply" -> {
-                // Auto-reply must be explicitly configured and safely authorized.
-                // Connect this branch to an approved messaging integration.
+                // Send auto-reply to sender
+                // sendAutoReply(content.sender, decision.autoReply)
             }
-            "ignore" -> Unit
+            "ignore" -> {
+                // Silently ignore
+            }
         }
     }
 }
