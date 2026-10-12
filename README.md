@@ -18,3 +18,12 @@ If `.github/workflows/build.yml` did not upload, create that file in the GitHub 
 - LiveSession.kt: MODEL name and Live API setup.
 - ToolRouter.kt: add tools (declaration + handler).
 - VisionAccessibilityService.kt: BLOCK list of apps Vision must never touch.
+
+
+## Visual display understanding (v4.3.0)
+1. Open Settings → Visual display understanding and choose 2 s, 1 s, or fast 0.25 s sampling.
+2. Tap Start screen capture and approve Android's system consent dialog.
+3. Tap Understand latest screen frame when you want Vision to analyze a captured frame. This sends that frame to Google's Gemini API using the API key you entered; screen content can be private, so only analyze when appropriate.
+4. Tap Stop screen capture when finished.
+
+Fast sampling uses more battery and can still miss rapid motion. The feature describes captured frames; it is not a guarantee of real-time game control or perfect touch accuracy. Accessibility-tree labels are used for semantic actions when available, and a tap result should be verified by reading the screen again. APK builds are available in GitHub Actions as the Vision-debug-apk artifact after a successful run.
