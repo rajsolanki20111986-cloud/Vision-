@@ -70,15 +70,30 @@ class VisionAccessibilityService : AccessibilityService() {
 
     fun clickText(t: String): String {
         val root = rootInActiveWindow ?: return "No screen available"
-        val node = root.findAccessibilityNodeInfosByText(t).firstOrNull { it.isVisibleToUser } ?: return "Not found: $t"
-        var c: AccessibilityNodeInfo? = node
-        while (c != null && !c.isClickable) c = c.parent
-        if (c != null && c.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return "Tapped $t"
-        val r = Rect(); node.getBoundsInScreen(r)
-        return if (tap(r.centerX(), r.centerY())) "Tapped $t by position" else "Could not tap $t"
+        val matches = root.findAccessibilityNodeInfosByText(t).orEmpty()
+            .filter { it.isVisibleToUser && it.isEnabled }
+        if (matches.isEmpty()) return "Not found or not enabled: $t"
+        val targets = matches.mapNotNull { node ->
+            var target: AccessibilityNodeInfo? = node
+            while (target != null && (!target.isClickable || !target.isEnabled)) target = target.parent
+            target
+        }.distinctBy { node ->
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            bounds.flattenToString()
+        }
+        if (targets.size > 1) return "Ambiguous target '$t' (${targets.size} matches); read screen and specify more context."
+        val target = targets.singleOrNull() ?: return "No clickable semantic target found for: $t"
+        if (target.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return "Tap action sent to '$t'; re-read the screen to verify the result."
+        val bounds = Rect()
+        target.getBoundsInScreen(bounds)
+        if (bounds.isEmpty || bounds.width() < 2 || bounds.height() < 2) return "Target has no safe visible bounds: $t"
+        return if (tap(bounds.centerX(), bounds.centerY())) "Fallback tap sent for '$t'; re-read the screen to verify the result." else "Could not tap $t"
     }
 
     fun tap(x: Int, y: Int): Boolean {
+        val metrics = resources.displayMetrics
+        if (x < 0 || y < 0 || x >= metrics.widthPixels || y >= metrics.heightPixels) return false
         val p = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
         return dispatchGesture(
             GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(p, 0, 60)).build(), null, null
@@ -127,10 +142,11 @@ class VisionAccessibilityService : AccessibilityService() {
         )
     }
 
-    suspend fun executePlayMusic() { tapXY(0.5f, 0.8f) }
-    suspend fun executePause() { tapXY(0.5f, 0.8f) }
-    suspend fun executeNext() { tapXY(0.75f, 0.8f) }
-    suspend fun executePrevious() { tapXY(0.25f, 0.8f) }
+    // Prefer semantic controls over brittle, app-specific screen coordinates.
+    suspend fun executePlayMusic() { clickText("play") }
+    suspend fun executePause() { clickText("pause") }
+    suspend fun executeNext() { clickText("next") }
+    suspend fun executePrevious() { clickText("previous") }
 
     fun tapXY(nx: Float, ny: Float): Boolean {
         val m = resources.displayMetrics
