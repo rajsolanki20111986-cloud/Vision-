@@ -3,6 +3,8 @@ package com.vision.app
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.app.Activity
+import android.media.projection.MediaProjectionManager
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -59,6 +61,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,6 +96,19 @@ fun VisionApp() {
     var tab by remember { mutableIntStateOf(0) }
     val perm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     LaunchedEffect(Unit) { perm.launch(Manifest.permission.RECORD_AUDIO) }
+    val ctx = LocalContext.current
+    var captureIntervalForConsent by remember { mutableStateOf(1000L) }
+    val captureConsent = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            val serviceIntent = Intent(ctx, ScreenCaptureService::class.java)
+                .putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, result.resultCode)
+                .putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, data)
+                .putExtra(ScreenCaptureService.EXTRA_INTERVAL_MS, captureIntervalForConsent)
+            ContextCompat.startForegroundService(ctx, serviceIntent)
+            Toast.makeText(ctx, "Screen understanding started with your permission", Toast.LENGTH_LONG).show()
+        } else Toast.makeText(ctx, "Screen capture permission was not granted", Toast.LENGTH_SHORT).show()
+    }
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         Scaffold(
@@ -106,7 +122,18 @@ fun VisionApp() {
             }
         ) { pad ->
             Box(Modifier.padding(pad).statusBarsPadding().fillMaxSize()) {
-                when (tab) { 0 -> VoiceScreen(); 1 -> ChatScreen(); else -> SettingsScreen() }
+                when (tab) {
+                    0 -> VoiceScreen()
+                    1 -> ChatScreen()
+                    else -> SettingsScreen(
+                        onStartCapture = { intervalMs ->
+                            captureIntervalForConsent = intervalMs
+                            val manager = ctx.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                            captureConsent.launch(manager.createScreenCaptureIntent())
+                        },
+                        onStopCapture = { ctx.stopService(Intent(ctx, ScreenCaptureService::class.java)) }
+                    )
+                }
             }
         }
     }
@@ -256,11 +283,15 @@ fun listen(ctx: Context, onText: (String) -> Unit) {
 // ---------------------------------------------------------------- Settings
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onStartCapture: (Long) -> Unit = {}, onStopCapture: () -> Unit = {}) {
     val ctx = LocalContext.current
     var key by remember { mutableStateOf(Prefs.apiKey) }
     var voice by remember { mutableStateOf(Prefs.voice) }
     var control by remember { mutableStateOf(Prefs.controlEnabled) }
+    var displayAnalysis by remember { mutableStateOf("No frame analyzed yet.") }
+    var analyzingDisplay by remember { mutableStateOf(false) }
+    var captureIntervalMs by remember { mutableStateOf(1000L) }
+    val scope = rememberCoroutineScope()
     val connected = VisionAccessibilityService.inst != null
 
     Column(
@@ -288,6 +319,34 @@ fun SettingsScreen() {
             }
             Switch(control, { control = it; Prefs.controlEnabled = it })
         }
+        HorizontalDivider()
+        Text("Visual display understanding", fontSize = 18.sp, color = CYAN)
+        Text("Android will ask permission before screen capture. Frames may contain private content; stop capture when finished.", fontSize = 12.sp, color = Color.Gray)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = { captureIntervalMs = 2000L }, enabled = captureIntervalMs != 2000L) { Text("2s") }
+            Button(onClick = { captureIntervalMs = 1000L }, enabled = captureIntervalMs != 1000L) { Text("1s") }
+            Button(onClick = { captureIntervalMs = 250L }, enabled = captureIntervalMs != 250L) { Text("0.25s") }
+        }
+        Button({ onStartCapture(captureIntervalMs) }, modifier = Modifier.fillMaxWidth()) { Text("Start screen capture (Android consent)") }
+        Button(onStopCapture, modifier = Modifier.fillMaxWidth()) { Text("Stop screen capture") }
+        Button(onClick = {
+            val frame = ScreenCaptureService.copyLatestFrame()
+            if (frame == null) displayAnalysis = "No frame yet. Start capture and wait a moment."
+            else if (Prefs.apiKey.isBlank()) { frame.recycle(); displayAnalysis = "Add a Gemini API key in Settings first." }
+            else {
+                analyzingDisplay = true
+                scope.launch {
+                    displayAnalysis = try {
+                        GeminiVisionClient.analyzeBitmap(frame, "Describe this phone display for an accessibility assistant. Read visible text where legible, explain visible photos, video scenes, game HUD and UI controls, and state uncertainty. Do not claim to see anything not visible.")
+                    } catch (e: Exception) { "Display analysis failed: ${e.message ?: e.javaClass.simpleName}" }
+                    finally { frame.recycle(); analyzingDisplay = false }
+                }
+            }
+        }, enabled = !analyzingDisplay, modifier = Modifier.fillMaxWidth()) {
+            Text(if (analyzingDisplay) "Analyzing display…" else "Understand latest screen frame")
+        }
+        Text(displayAnalysis, fontSize = 13.sp, color = Color.White)
+        Text(ScreenCaptureService.captureError, fontSize = 12.sp, color = Color.Gray)
         Button({ ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) { Text("Open Accessibility settings") }
         Button({
             ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + ctx.packageName)))
